@@ -8,10 +8,21 @@ QUI = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.dirname(QUI)
 
 def img(nome):
-    return os.path.join(RENDER, nome)
+    """Copia JPEG compressa del render (il PNG originale pesa troppo per un PDF da inviare)."""
+    src = os.path.join(RENDER, nome)
+    if not os.path.exists(src):
+        return src
+    from PIL import Image
+    dst = os.path.join(QUI, "img", os.path.splitext(nome)[0] + ".jpg")
+    os.makedirs(os.path.dirname(dst), exist_ok=True)
+    if not os.path.exists(dst) or os.path.getmtime(dst) < os.path.getmtime(src):
+        im = Image.open(src).convert("RGB")
+        im.thumbnail((1600, 1600))
+        im.save(dst, quality=82, optimize=True)
+    return dst
 
 def esiste(nome):
-    return os.path.exists(img(nome))
+    return os.path.exists(os.path.join(RENDER, nome))
 
 OTTICHE = [
     ("0_25_dist_2_0", "0,25:1", "2,00 m", "8,00 × 5,00 m",
