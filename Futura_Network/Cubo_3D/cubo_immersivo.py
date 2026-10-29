@@ -18,8 +18,12 @@ from mathutils import Vector
 #   --salva <file>    salva il .blend
 import sys
 ARGV = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
-RAPPORTO_TIRO = float(ARGV[ARGV.index("--ottica") + 1]) if "--ottica" in ARGV else 0.8
+RAPPORTO_TIRO = float(ARGV[ARGV.index("--ottica") + 1]) if "--ottica" in ARGV else 2.0 / 6.0
 CON_PORTA = "--senza-porta" not in ARGV
+#   --distanza 4.8    distanza di tiro fissa (m): l'immagine diventa larga distanza / rapporto di tiro
+#   (default 2,0 m: i tre proiettori sono raggruppati al centro, schiena contro schiena, come da schizzo)
+DISTANZA_FISSA = float(ARGV[ARGV.index("--distanza") + 1]) if "--distanza" in ARGV else 2.0
+FORMATO = 16 / 10            # WUXGA, il formato più comune nei proiettori da installazione
 
 # ---------------------------------------------------------------- misure
 L = 6.0          # larghezza (asse X)
@@ -193,10 +197,11 @@ for nome_s, z, rot in (("Specchio_pavimento", OFF, (0, 0, 0)), ("Specchio_soffit
 # Posizione calcolata dall'ottica: distanza di tiro D = rapporto di tiro x larghezza immagine.
 # L'asse ottico è orizzontale e perpendicolare alla parete; l'immagine viene centrata sulla
 # parete con il lens shift (verticale e orizzontale), come si fa con i proiettori reali.
-# Ogni proiettore è appeso al pannello del tetto con una staffa.
+# Disposizione (schizzo): i tre proiettori sono raggruppati al centro del cubo, ognuno rivolto
+# verso la propria parete e alla stessa distanza da essa. Ogni proiettore è appeso al tetto con una staffa.
 CORPO = (0.45, 0.35, 0.18)   # lunghezza (lungo l'asse ottico), larghezza, altezza (m)
 Z_LENTE = H - 0.30           # quota dell'asse ottico
-SCOSTAMENTO = 0.8            # spostamento laterale dall'asse della parete, evita urti fra i corpi
+SCOSTAMENTO = 0.0            # proiettori sull'asse della propria parete (disposizione simmetrica)
 
 pareti = [
     # nome, punto sulla parete, direzione verso la parete, asse "destra" dell'immagine, angoli
@@ -209,24 +214,26 @@ pareti = [
 ]
 LARGHEZZA_IMMAGINE = {"Proiettore_parete_sinistra": P, "Proiettore_parete_destra": P, "Proiettore_parete_fondo": L}
 
-def luce_proiettore(nome, lente, direzione, angoli, colore=(1, 1, 1)):
-    """Luce spot con maschera rettangolare = tronco di proiezione esatto (usata nei render delle zone)."""
+def luce_proiettore(nome, lente, direzione, centro_parete, larghezza_img, colore=(1, 1, 1)):
+    """Luce spot con il tronco di proiezione reale (formato 16:10, centrato sulla parete con il
+    lens shift) e una griglia di test. Non è ritagliata sulla parete: se l'immagine è più grande,
+    la parte in eccesso cade su pavimento, soffitto e pareti vicine, come nella realtà."""
     ld = bpy.data.lights.new(nome + "_fascio", type='SPOT')
     ld.shadow_soft_size = 0.03          # pupilla dell'ottica: ombre nette come nella realtà
     ob = bpy.data.objects.new(nome + "_fascio", ld)
     ob.location = lente
     ob.rotation_euler = direzione.to_track_quat('-Z', 'Y').to_euler()
     C_PROIEZIONI.objects.link(ob)
-    # limiti dell'immagine nel piano dell'ottica (u = destra, v = alto), da angoli della parete
     mat = ob.rotation_euler.to_matrix()
     destra, alto = mat @ Vector((1, 0, 0)), mat @ Vector((0, 1, 0))
-    dist = (angoli[0] - lente).dot(direzione)
-    us = [(c - lente).dot(destra) / dist for c in angoli]
-    vs = [(c - lente).dot(alto) / dist for c in angoli]
-    umin, umax, vmin, vmax = min(us), max(us), min(vs), max(vs)
+    dist = (centro_parete - lente).dot(direzione)
+    cu = (centro_parete - lente).dot(destra) / dist
+    cv = (centro_parete - lente).dot(alto) / dist
+    mu, mv = larghezza_img / 2 / dist, larghezza_img / FORMATO / 2 / dist
+    umin, umax, vmin, vmax = cu - mu, cu + mu, cv - mv, cv + mv
     ld.spot_size = min(math.radians(179), 2 * math.atan(math.hypot(max(-umin, umax), max(-vmin, vmax))) + 0.02)
     ld.spot_blend = 0.0
-    ld.energy = 120 * dist ** 2          # stessa illuminazione sulla parete a qualunque distanza
+    ld.energy = 120 * dist ** 2 * (6.0 / larghezza_img) ** 2   # luminosità costante per m² a parità di proiettore
     ld.use_nodes = True
     nt = ld.node_tree
     emi = nt.nodes.get("Emission")
@@ -234,7 +241,7 @@ def luce_proiettore(nome, lente, direzione, angoli, colore=(1, 1, 1)):
     tc = nt.nodes.new("ShaderNodeTexCoord")
     sep = nt.nodes.new("ShaderNodeSeparateXYZ")
     nt.links.new(tc.outputs["Normal"], sep.inputs["Vector"])
-    def m(op, a, b):
+    def m(op, a, b=0.0):
         n = nt.nodes.new("ShaderNodeMath")
         n.operation = op
         for i, x in enumerate((a, b)):
@@ -246,15 +253,27 @@ def luce_proiettore(nome, lente, direzione, angoli, colore=(1, 1, 1)):
     zneg = m('MULTIPLY', sep.outputs["Z"], -1.0)
     u = m('DIVIDE', sep.outputs["X"], zneg)
     v = m('DIVIDE', sep.outputs["Y"], zneg)
-    maschera = m('MULTIPLY', m('MULTIPLY', m('GREATER_THAN', u, umin), m('LESS_THAN', u, umax)),
-                 m('MULTIPLY', m('GREATER_THAN', v, vmin), m('LESS_THAN', v, vmax)))
-    nt.links.new(maschera, emi.inputs["Strength"])
+    U = m('DIVIDE', m('SUBTRACT', u, umin), umax - umin)       # 0..1 sull'immagine
+    V = m('DIVIDE', m('SUBTRACT', v, vmin), vmax - vmin)
+    dentro = m('MULTIPLY', m('MULTIPLY', m('GREATER_THAN', U, 0.0), m('LESS_THAN', U, 1.0)),
+               m('MULTIPLY', m('GREATER_THAN', V, 0.0), m('LESS_THAN', V, 1.0)))
+    # griglia 16 x 10 (celle quadrate), cornice e croce centrale
+    def linee(X, n, sp):
+        f = m('FRACT', m('MULTIPLY', X, n))
+        return m('MAXIMUM', m('LESS_THAN', f, sp), m('GREATER_THAN', f, 1 - sp))
+    griglia = m('MAXIMUM', linee(U, 16, 0.025), linee(V, 10, 0.025))
+    bordo = m('MAXIMUM', linee(U, 1, 0.006), linee(V, 1, 0.009))
+    croce = m('MAXIMUM', m('LESS_THAN', m('ABSOLUTE', m('SUBTRACT', U, 0.5)), 0.003),
+              m('LESS_THAN', m('ABSOLUTE', m('SUBTRACT', V, 0.5)), 0.005))
+    tratti = m('MAXIMUM', m('MAXIMUM', griglia, bordo), croce)
+    nt.links.new(m('MULTIPLY', dentro, m('ADD', 0.35, m('MULTIPLY', tratti, 1.6))), emi.inputs["Strength"])
     ob.hide_render = True               # spenta nella scena realistica (le pareti sono già luminose)
-    ob["umin_umax_vmin_vmax"] = [umin, umax, vmin, vmax]
+    ob["immagine_m"] = [larghezza_img, larghezza_img / FORMATO]
     return ob
 
 for nome, punto, direzione, scost, angoli in pareti:
-    D = RAPPORTO_TIRO * LARGHEZZA_IMMAGINE[nome]
+    D = DISTANZA_FISSA if DISTANZA_FISSA else RAPPORTO_TIRO * LARGHEZZA_IMMAGINE[nome]
+    larghezza_img = D / RAPPORTO_TIRO
     lente_pos = Vector((punto.x, punto.y, Z_LENTE)) - direzione * D + scost
     rot = direzione.to_track_quat('X', 'Z').to_euler()
 
@@ -283,7 +302,7 @@ for nome, punto, direzione, scost, angoli in pareti:
     box(nome + "_staffa_piastra", (centro_corpo.x, centro_corpo.y, H - 0.01), (0.3, 0.3, 0.02), M_STAFFA, C_PROIETTORI)
 
     # fascio luminoso per i render delle zone di proiezione
-    luce_proiettore(nome, lente_pos, direzione, angoli)
+    luce_proiettore(nome, lente_pos, direzione, sum(angoli, Vector()) / 4, larghezza_img)
 
     # cono di proiezione (solo guida in viewport, non va in render)
     me = bpy.data.meshes.new(nome + "_cono")
@@ -295,7 +314,8 @@ for nome, punto, direzione, scost, angoli in pareti:
     cono.hide_render = True
     C_PROIEZIONI.objects.link(cono)
 
-print(f"Ottica: rapporto di tiro {RAPPORTO_TIRO} -> distanza di tiro {RAPPORTO_TIRO * 6:.2f} m per un'immagine larga 6 m")
+_D = DISTANZA_FISSA if DISTANZA_FISSA else RAPPORTO_TIRO * 6
+print(f"Ottica {RAPPORTO_TIRO:.2f}:1, distanza {_D:.2f} m -> immagine {_D / RAPPORTO_TIRO:.2f} x {_D / RAPPORTO_TIRO / FORMATO:.2f} m")
 
 # proiettori e staffe mascherati: invisibili nei riflessi degli specchi
 for ob in C_PROIETTORI.objects:

@@ -29,7 +29,7 @@ def opaco(nome, grigio):
     return m
 
 M_SCHERMO = opaco("Zona_parete_bianca", 0.8)
-M_PIANO = opaco("Zona_pavimento_grigio", 0.18)
+M_PIANO = opaco("Zona_pavimento_grigio", 0.45)
 for ob in bpy.data.objects:
     if ob.type != 'MESH':
         continue
@@ -79,7 +79,7 @@ def camera(nome, pos, guarda, lente_mm=None, orto=None):
     return cam
 
 cam_interna = camera("Camera_zone_interna", (X1 - 0.4, Y0 + 0.4, 1.7), (X0 + 1.2, Y1 - 1.0, 1.5), lente_mm=12)
-cam_pianta = camera("Camera_zone_pianta", (0, -0.0001, 25), (0, 0, 0), orto=7.4)
+cam_pianta = camera("Camera_zone_pianta", (0, -0.0001, 25), (0, 0, 0), orto=9.0)
 da_nascondere_in_pianta = [o for o in bpy.data.objects
                            if o.name.startswith(("Tetto_", "Specchio_soffitto", "Fondo_soffitto"))]
 
@@ -114,11 +114,13 @@ for k in ("date", "time", "render_time", "frame", "frame_range", "memory", "host
     if hasattr(r, "use_stamp_" + k):
         setattr(r, "use_stamp_" + k, False)
 r.use_stamp_note = True
-r.stamp_note_text = (f"Rapporto di tiro {RAPPORTO_TIRO:.2f}:1  -  distanza di tiro {RAPPORTO_TIRO * 6:.2f} m  -  "
-                     f"immagine 6,0 x 3,5 m  -  arancio = sinistra, verde = fondo, azzurro = destra")
+_D = DISTANZA_FISSA if DISTANZA_FISSA else RAPPORTO_TIRO * 6
+_w = _D / RAPPORTO_TIRO
+r.stamp_note_text = (f"Ottica {RAPPORTO_TIRO:.2f}:1  -  distanza {_D:.2f} m  -  immagine {_w:.2f} x {_w / FORMATO:.2f} m (16:10) "
+                     f"su parete 6,00 x 3,50 m  -  arancio = sinistra, verde = fondo, azzurro = destra")
 r.stamp_font_size = 26
 
-etichetta = f"{RAPPORTO_TIRO:.2f}".replace(".", "_") + ("" if CON_PORTA else "_senza_porta")
+etichetta = f"{RAPPORTO_TIRO:.2f}".replace(".", "_") + f"_dist_{_D:.1f}".replace(".", "_") + ("" if CON_PORTA else "_senza_porta")
 for cam, vista, nascondi in ((cam_interna, "interna", []), (cam_pianta, "pianta", da_nascondere_in_pianta)):
     for o in nascondi:
         o.hide_render = True
