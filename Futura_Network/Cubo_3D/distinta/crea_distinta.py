@@ -14,18 +14,26 @@ def esiste(nome):
     return os.path.exists(img(nome))
 
 OTTICHE = [
-    ("0_25", "0,25:1", "8,00 × 5,00 m",
+    ("0_25_dist_2_0", "0,25:1", "2,00 m", "8,00 × 5,00 m",
      "L'immagine è molto più grande della parete. L'abbondanza cade su pavimento, soffitto e pareti adiacenti, "
      "e nei quattro angoli i fasci di due proiettori si sovrappongono. Va gestita con una maschera nel contenuto "
      "(la parte fuori parete deve essere nera), e si perde risoluzione utile: la parete usa circa il 53% dei pixel."),
-    ("0_33", "0,33:1", "6,00 × 3,75 m",
+    ("0_33_dist_2_0", "0,33:1", "2,00 m", "6,00 × 3,75 m",
      "È l'ottica giusta per la distanza di 2,0 m: l'immagine copre la parete in larghezza, al centimetro. "
      "In altezza avanzano 12,5 cm sopra e 12,5 cm sotto (il 16:10 è più alto della parete): una piccola "
      "abbondanza utile come margine di regolazione, da mascherare nel contenuto."),
-    ("0_50", "0,5:1", "4,00 × 2,50 m",
+    ("0_50_dist_2_0", "0,5:1", "2,00 m", "4,00 × 2,50 m",
      "L'immagine è troppo piccola: a 2,0 m non copre la parete e restano fasce scure su tutti i lati. "
      "Per usarla i proiettori andrebbero a 3,0 m dalla parete, cioè nella metà opposta del cubo, "
      "dove i fasci si incrociano e le persone fanno ombra."),
+    ("0_80_dist_2_0", "0,8:1", "2,00 m", "2,50 × 1,56 m",
+     "Ottica corta classica, con i proiettori fermi al centro: l'immagine è di soli 2,50 × 1,56 m, "
+     "meno di un quinto della parete. Questa ottica non è adatta alla disposizione centrale."),
+    ("0_80_dist_4_8", "0,8:1", "4,80 m", "6,00 × 3,75 m",
+     "Per coprire la parete con l'ottica 0,8:1 il proiettore deve stare a 4,80 m, cioè dalla parte opposta "
+     "del cubo (a 1,20 m dalla parete alle sue spalle). I fasci attraversano tutta la sala all'altezza delle "
+     "teste e si incrociano al centro: chi è dentro il cubo fa ombra sulle pareti. È il confronto che "
+     "spiega perché conviene l'ottica ultra-corta al centro."),
 ]
 
 def figura(nome, didascalia, classe=""):
@@ -144,7 +152,8 @@ pagine.append(f'''
 pagine.append('''
 <section>
   <h2>5. Confronto delle ottiche</h2>
-  <p>Proiettori fermi nella stessa posizione (2,00 m dalla parete), tre ottiche diverse.
+  <p>Proiettori fermi nella stessa posizione (2,00 m dalla parete) con ottiche diverse; in più, l'ottica
+  corta 0,8:1 alla distanza che le serve per coprire la parete (4,80 m).
   La larghezza dell'immagine è <b>distanza ÷ rapporto di tiro</b>; il formato è 16:10 (WUXGA), il più
   comune nei proiettori da installazione. L'immagine <b>non è ritagliata</b>: quello che eccede la parete
   cade su pavimento, soffitto e pareti vicine, come succederebbe davvero.</p>
@@ -153,6 +162,8 @@ pagine.append('''
     <tr><td>0,25:1</td><td>2,00 m</td><td>8,00 × 5,00 m</td><td>deborda di 1,00 m per lato e 0,75 m sopra e sotto</td></tr>
     <tr class="ok"><td>0,33:1</td><td>2,00 m</td><td>6,00 × 3,75 m</td><td>esatta in larghezza, 12,5 cm sopra e sotto &mdash; <b>consigliata</b></td></tr>
     <tr><td>0,5:1</td><td>2,00 m</td><td>4,00 × 2,50 m</td><td>non copre: mancano 1,00 m per lato e 0,50 m sopra e sotto</td></tr>
+    <tr><td>0,8:1</td><td>2,00 m</td><td>2,50 × 1,56 m</td><td>copre meno di un quinto della parete</td></tr>
+    <tr><td>0,8:1</td><td>4,80 m</td><td>6,00 × 3,75 m</td><td>copre, ma i proiettori vanno dalla parte opposta: fasci incrociati e ombre</td></tr>
   </table>
   <h3>Legenda dei render</h3>
   <p>Ogni proiettore ha un colore: <span class="c ar">arancio</span> = parete sinistra,
@@ -163,14 +174,14 @@ pagine.append('''
   Una leggera foschia rende visibili i fasci nell'aria.</p>
 </section>''')
 
-for chiave, rt, dim, testo in OTTICHE:
+for chiave, rt, dist, dim, testo in OTTICHE:
     pagine.append(f'''
 <section>
-  <h2>Ottica {rt} &nbsp;<span class="sub">distanza 2,00 m · immagine {dim}</span></h2>
+  <h2>Ottica {rt} &nbsp;<span class="sub">distanza {dist} · immagine {dim}</span></h2>
   <div class="griglia2">
-    {figura(f"zone_ottica_{chiave}_dist_2_0_interna.png", "Interno verso il fondo.")}
-    {figura(f"zone_ottica_{chiave}_dist_2_0_verso_porta.png", "Interno verso l'ingresso.")}
-    {figura(f"zone_ottica_{chiave}_dist_2_0_pianta.png", "Pianta dall'alto.")}
+    {figura(f"zone_ottica_{chiave}_interna.png", "Interno verso il fondo.")}
+    {figura(f"zone_ottica_{chiave}_verso_porta.png", "Interno verso l'ingresso.")}
+    {figura(f"zone_ottica_{chiave}_pianta.png", "Pianta dall'alto.")}
     <div class="nota"><h3>Cosa si vede</h3><p>{testo}</p></div>
   </div>
 </section>''')
