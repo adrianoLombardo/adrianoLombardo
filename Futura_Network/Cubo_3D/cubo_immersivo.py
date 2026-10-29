@@ -12,6 +12,15 @@ import bpy
 import math
 from mathutils import Vector
 
+# ---------------------------------------------------------------- opzioni da riga di comando
+#   --ottica 0.8      rapporto di tiro (distanza / larghezza immagine)
+#   --senza-porta     lato frontale aperto invece della parete con la porta
+#   --salva <file>    salva il .blend
+import sys
+ARGV = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+RAPPORTO_TIRO = float(ARGV[ARGV.index("--ottica") + 1]) if "--ottica" in ARGV else 0.8
+CON_PORTA = "--senza-porta" not in ARGV
+
 # ---------------------------------------------------------------- misure
 L = 6.0          # larghezza (asse X)
 P = 6.0          # profondità (asse Y)
@@ -140,6 +149,30 @@ piano("Proiezione_parete_sinistra", (X0 + SP, 0, H / 2), H, P, M_PARETE_SX, C_ST
 piano("Proiezione_parete_destra", (X1 - SP, 0, H / 2), H, P, M_PARETE_DX, C_STRUTTURA, rot=(0, -math.pi / 2, 0))
 piano("Proiezione_parete_fondo", (0, Y1 - SP, H / 2), L, H, M_PARETE_FONDO, C_STRUTTURA, rot=(math.pi / 2, 0, 0))
 
+if CON_PORTA:
+    # Parete frontale chiusa con porta d'ingresso (vano 1,0 x 2,2 m al centro)
+    PORTA_L, PORTA_H = 1.0, 2.2
+    YF = Y0 - SP_PARETE / 2
+    lato = (L + 2 * SP_PARETE - PORTA_L) / 2
+    box("Parete_frontale_sx", (X0 - SP_PARETE + lato / 2, YF, H / 2), (lato, SP_PARETE, H), M_STRUTTURA, C_STRUTTURA)
+    box("Parete_frontale_dx", (X1 + SP_PARETE - lato / 2, YF, H / 2), (lato, SP_PARETE, H), M_STRUTTURA, C_STRUTTURA)
+    box("Parete_frontale_architrave", (0, YF, (PORTA_H + H) / 2), (PORTA_L, SP_PARETE, H - PORTA_H), M_STRUTTURA, C_STRUTTURA)
+    # telaio della porta
+    M_TELAIO = mat_base("Telaio_porta", (0.05, 0.05, 0.055), rough=0.35, metal=1.0)
+    T = 0.04
+    box("Porta_telaio_sx", (-PORTA_L / 2 + T / 2, YF, PORTA_H / 2), (T, SP_PARETE + 0.01, PORTA_H), M_TELAIO, C_STRUTTURA)
+    box("Porta_telaio_dx", (PORTA_L / 2 - T / 2, YF, PORTA_H / 2), (T, SP_PARETE + 0.01, PORTA_H), M_TELAIO, C_STRUTTURA)
+    box("Porta_telaio_alto", (0, YF, PORTA_H - T / 2), (PORTA_L, SP_PARETE + 0.01, T), M_TELAIO, C_STRUTTURA)
+    # anta aperta verso l'esterno, cerniera sul lato sinistro
+    ANTA_L = PORTA_L - 2 * T
+    from mathutils import Matrix
+    anta = box("Porta_anta", (0, 0, 0), (ANTA_L, 0.045, PORTA_H - T - 0.01), M_STRUTTURA, C_STRUTTURA)
+    anta.data.transform(Matrix.Translation((ANTA_L / 2, 0, (PORTA_H - T - 0.01) / 2)))  # origine sulla cerniera
+    anta.location = (-PORTA_L / 2 + T, Y0 - SP_PARETE - 0.025, 0.005)
+    anta.rotation_euler = (0, 0, math.radians(-75))
+    box("Porta_maniglia", (0, 0, 0), (0.12, 0.03, 0.02), M_TELAIO, C_STRUTTURA).parent = anta
+    anta.children[0].location = (ANTA_L - 0.1, -0.04, 1.05)
+
 # Base del pavimento e pannello di legno del tetto
 box("Base_pavimento", (0, 0, -SP_BASE / 2), (L + 2 * SP_PARETE, P + SP_PARETE, SP_BASE), M_STRUTTURA, C_STRUTTURA)
 box("Tetto_pannello_legno", (0, 0, H + SP_TETTO / 2), (L + 2 * SP_PARETE, P + SP_PARETE, SP_TETTO), M_LEGNO, C_STRUTTURA)
@@ -157,33 +190,83 @@ for nome_s, z, rot in (("Specchio_pavimento", OFF, (0, 0, 0)), ("Specchio_soffit
             piano(f"{nome_s}_{i}_{j}", (cx, cy, z), L / nx - FUGA, P / ny - FUGA, M_SPECCHIO, C_SPECCHI, rot=rot)
 
 # ---------------------------------------------------------------- proiettori
-# Ogni proiettore è appeso con una staffa al pannello del tetto, sul lato opposto
-# alla parete che proietta, e punta verso il centro di quella parete.
-CORPO = (0.45, 0.35, 0.18)   # dimensioni indicative proiettore (m)
-Z_PROIETTORE = H - 0.35      # quota del corpo proiettore
+# Posizione calcolata dall'ottica: distanza di tiro D = rapporto di tiro x larghezza immagine.
+# L'asse ottico è orizzontale e perpendicolare alla parete; l'immagine viene centrata sulla
+# parete con il lens shift (verticale e orizzontale), come si fa con i proiettori reali.
+# Ogni proiettore è appeso al pannello del tetto con una staffa.
+CORPO = (0.45, 0.35, 0.18)   # lunghezza (lungo l'asse ottico), larghezza, altezza (m)
+Z_LENTE = H - 0.30           # quota dell'asse ottico
+SCOSTAMENTO = 0.8            # spostamento laterale dall'asse della parete, evita urti fra i corpi
 
-proiettori = [
-    # nome, posizione, centro della parete bersaglio, angoli della parete bersaglio
-    ("Proiettore_parete_sinistra", Vector((X1 - 0.6, 0.0, Z_PROIETTORE)),
+pareti = [
+    # nome, punto sulla parete, direzione verso la parete, asse "destra" dell'immagine, angoli
+    ("Proiettore_parete_sinistra", Vector((X0, 0, 0)), Vector((-1, 0, 0)), Vector((0, SCOSTAMENTO, 0)),
      [Vector((X0, Y0, 0)), Vector((X0, Y1, 0)), Vector((X0, Y1, H)), Vector((X0, Y0, H))]),
-    ("Proiettore_parete_destra", Vector((X0 + 0.6, 0.0, Z_PROIETTORE)),
+    ("Proiettore_parete_destra", Vector((X1, 0, 0)), Vector((1, 0, 0)), Vector((0, -SCOSTAMENTO, 0)),
      [Vector((X1, Y1, 0)), Vector((X1, Y0, 0)), Vector((X1, Y0, H)), Vector((X1, Y1, H))]),
-    ("Proiettore_parete_fondo", Vector((0.0, Y0 + 0.6, Z_PROIETTORE)),
+    ("Proiettore_parete_fondo", Vector((0, Y1, 0)), Vector((0, 1, 0)), Vector((0, 0, 0)),
      [Vector((X1, Y1, 0)), Vector((X0, Y1, 0)), Vector((X0, Y1, H)), Vector((X1, Y1, H))]),
 ]
+LARGHEZZA_IMMAGINE = {"Proiettore_parete_sinistra": P, "Proiettore_parete_destra": P, "Proiettore_parete_fondo": L}
 
-for nome, pos, angoli in proiettori:
-    centro_parete = sum(angoli, Vector()) / 4
-    direzione = (centro_parete - pos).normalized()
+def luce_proiettore(nome, lente, direzione, angoli, colore=(1, 1, 1)):
+    """Luce spot con maschera rettangolare = tronco di proiezione esatto (usata nei render delle zone)."""
+    ld = bpy.data.lights.new(nome + "_fascio", type='SPOT')
+    ld.shadow_soft_size = 0.03          # pupilla dell'ottica: ombre nette come nella realtà
+    ob = bpy.data.objects.new(nome + "_fascio", ld)
+    ob.location = lente
+    ob.rotation_euler = direzione.to_track_quat('-Z', 'Y').to_euler()
+    C_PROIEZIONI.objects.link(ob)
+    # limiti dell'immagine nel piano dell'ottica (u = destra, v = alto), da angoli della parete
+    mat = ob.rotation_euler.to_matrix()
+    destra, alto = mat @ Vector((1, 0, 0)), mat @ Vector((0, 1, 0))
+    dist = (angoli[0] - lente).dot(direzione)
+    us = [(c - lente).dot(destra) / dist for c in angoli]
+    vs = [(c - lente).dot(alto) / dist for c in angoli]
+    umin, umax, vmin, vmax = min(us), max(us), min(vs), max(vs)
+    ld.spot_size = min(math.radians(179), 2 * math.atan(math.hypot(max(-umin, umax), max(-vmin, vmax))) + 0.02)
+    ld.spot_blend = 0.0
+    ld.energy = 120 * dist ** 2          # stessa illuminazione sulla parete a qualunque distanza
+    ld.use_nodes = True
+    nt = ld.node_tree
+    emi = nt.nodes.get("Emission")
+    emi.inputs["Color"].default_value = (*colore, 1)
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Normal"], sep.inputs["Vector"])
+    def m(op, a, b):
+        n = nt.nodes.new("ShaderNodeMath")
+        n.operation = op
+        for i, x in enumerate((a, b)):
+            if isinstance(x, (int, float)):
+                n.inputs[i].default_value = x
+            else:
+                nt.links.new(x, n.inputs[i])
+        return n.outputs[0]
+    zneg = m('MULTIPLY', sep.outputs["Z"], -1.0)
+    u = m('DIVIDE', sep.outputs["X"], zneg)
+    v = m('DIVIDE', sep.outputs["Y"], zneg)
+    maschera = m('MULTIPLY', m('MULTIPLY', m('GREATER_THAN', u, umin), m('LESS_THAN', u, umax)),
+                 m('MULTIPLY', m('GREATER_THAN', v, vmin), m('LESS_THAN', v, vmax)))
+    nt.links.new(maschera, emi.inputs["Strength"])
+    ob.hide_render = True               # spenta nella scena realistica (le pareti sono già luminose)
+    ob["umin_umax_vmin_vmax"] = [umin, umax, vmin, vmax]
+    return ob
+
+for nome, punto, direzione, scost, angoli in pareti:
+    D = RAPPORTO_TIRO * LARGHEZZA_IMMAGINE[nome]
+    lente_pos = Vector((punto.x, punto.y, Z_LENTE)) - direzione * D + scost
     rot = direzione.to_track_quat('X', 'Z').to_euler()
 
-    # corpo del proiettore, orientato verso la parete (asse X = obiettivo)
-    corpo = box(nome, pos, CORPO, M_PROIETTORE, C_PROIETTORI)
+    # corpo del proiettore dietro l'ottica (asse X locale = asse ottico)
+    centro_corpo = lente_pos - direzione * (CORPO[0] / 2 + 0.03)
+    corpo = box(nome, centro_corpo, CORPO, M_PROIETTORE, C_PROIETTORI)
     corpo.rotation_euler = rot
+    corpo["distanza_di_tiro_m"] = D
+    corpo["rapporto_di_tiro"] = RAPPORTO_TIRO
 
     # obiettivo
-    lente_pos = pos + direzione * (CORPO[0] / 2 + 0.03)
-    bpy.ops.mesh.primitive_cylinder_add(radius=0.06, depth=0.06, location=lente_pos)
+    bpy.ops.mesh.primitive_cylinder_add(radius=0.06, depth=0.06, location=lente_pos - direzione * 0.03)
     lente = bpy.context.active_object
     lente.name = nome + "_ottica"
     lente.rotation_euler = direzione.to_track_quat('Z', 'Y').to_euler()
@@ -193,10 +276,14 @@ for nome, pos, angoli in proiettori:
     C_PROIETTORI.objects.link(lente)
 
     # staffa: asta verticale dal corpo al pannello del tetto + piastra
-    alt_asta = H - (pos.z + CORPO[2] / 2)
-    box(nome + "_staffa_asta", (pos.x, pos.y, pos.z + CORPO[2] / 2 + alt_asta / 2),
+    top_corpo = Z_LENTE + CORPO[2] / 2
+    alt_asta = H - top_corpo
+    box(nome + "_staffa_asta", (centro_corpo.x, centro_corpo.y, top_corpo + alt_asta / 2),
         (0.05, 0.05, alt_asta), M_STAFFA, C_PROIETTORI)
-    box(nome + "_staffa_piastra", (pos.x, pos.y, H - 0.01), (0.3, 0.3, 0.02), M_STAFFA, C_PROIETTORI)
+    box(nome + "_staffa_piastra", (centro_corpo.x, centro_corpo.y, H - 0.01), (0.3, 0.3, 0.02), M_STAFFA, C_PROIETTORI)
+
+    # fascio luminoso per i render delle zone di proiezione
+    luce_proiettore(nome, lente_pos, direzione, angoli)
 
     # cono di proiezione (solo guida in viewport, non va in render)
     me = bpy.data.meshes.new(nome + "_cono")
@@ -207,6 +294,8 @@ for nome, pos, angoli in proiettori:
     cono.display_type = 'WIRE'
     cono.hide_render = True
     C_PROIEZIONI.objects.link(cono)
+
+print(f"Ottica: rapporto di tiro {RAPPORTO_TIRO} -> distanza di tiro {RAPPORTO_TIRO * 6:.2f} m per un'immagine larga 6 m")
 
 # proiettori e staffe mascherati: invisibili nei riflessi degli specchi
 for ob in C_PROIETTORI.objects:
@@ -421,7 +510,10 @@ def camera(nome, pos, guarda, lente_mm):
     C_CAMERE.objects.link(cam)
     return cam
 
-cam_ingresso = camera("Camera_ingresso", (0, Y0 - 4.5, 1.7), (0, 0, 1.6), 24)
+if CON_PORTA:
+    cam_ingresso = camera("Camera_ingresso", (0.6, Y0 - 3.6, 1.55), (0, Y0, 1.3), 24)
+else:
+    cam_ingresso = camera("Camera_ingresso", (0, Y0 - 4.5, 1.7), (0, 0, 1.6), 24)
 camera("Camera_interna", (0, Y0 + 1.0, 1.6), (0, Y1, 1.9), 14)
 camera("Camera_esterna_3-4", (X1 + 6, Y0 - 7, 5.5), (0, 0, 1.5), 28)
 scena.camera = cam_ingresso
@@ -468,10 +560,7 @@ except TypeError:
 print("Cubo immersivo creato: 6 x 6 m, h 3,5 m — 3 pareti proiettate, pavimento e soffitto a specchio, 3 proiettori.")
 
 # ---------------------------------------------------------------- salvataggio (da riga di comando)
-import sys
-if "--" in sys.argv:
-    argv = sys.argv[sys.argv.index("--") + 1:]
-    if "--salva" in argv:
-        percorso = argv[argv.index("--salva") + 1]
-        bpy.ops.wm.save_as_mainfile(filepath=percorso)
-        print("Salvato:", percorso)
+if "--salva" in ARGV:
+    percorso = ARGV[ARGV.index("--salva") + 1]
+    bpy.ops.wm.save_as_mainfile(filepath=percorso)
+    print("Salvato:", percorso)
