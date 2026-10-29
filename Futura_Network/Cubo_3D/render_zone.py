@@ -122,10 +122,11 @@ _D = DISTANZA_FISSA if DISTANZA_FISSA else RAPPORTO_TIRO * 6
 _w = _D / RAPPORTO_TIRO
 r.stamp_note_text = (f"Ottica {RAPPORTO_TIRO:.2f}:1  -  distanza {_D:.2f} m  -  immagine {_w:.2f} x {_w / FORMATO:.2f} m (16:10) "
                      f"su parete 6,00 x 3,50 m  -  arancio = sinistra, verde = fondo, azzurro = destra"
-                     + (", magenta = ingresso" if CON_PORTA else ""))
+                     + (", magenta = ingresso" if CON_PORTA else "")
+                     + (f"  -  proiettori a girandola, spostati di {GIRANDOLA:.2f} m di lato" if GIRANDOLA else ""))
 r.stamp_font_size = 26
 
-etichetta = f"{RAPPORTO_TIRO:.2f}".replace(".", "_") + f"_dist_{_D:.1f}".replace(".", "_") + ("" if CON_PORTA else "_senza_porta")
+etichetta = f"{RAPPORTO_TIRO:.2f}".replace(".", "_") + f"_dist_{_D:.1f}".replace(".", "_") + ("_girandola" if GIRANDOLA else "") + ("" if CON_PORTA else "_senza_porta")
 viste = [(cam_interna, "interna", []), (cam_pianta, "pianta", da_nascondere_in_pianta)]
 if CON_PORTA:
     viste.insert(1, (cam_porta, "verso_porta", []))

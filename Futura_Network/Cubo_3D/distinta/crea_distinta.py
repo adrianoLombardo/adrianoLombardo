@@ -26,6 +26,12 @@ OTTICHE = [
      "L'immagine è troppo piccola: a 2,0 m non copre la parete e restano fasce scure su tutti i lati. "
      "Per usarla i proiettori andrebbero a 3,0 m dalla parete, cioè nella metà opposta del cubo, "
      "dove i fasci si incrociano e le persone fanno ombra."),
+    ("0_50_dist_3_0_girandola", "0,5:1 a girandola", "3,00 m", "6,00 × 3,75 m",
+     "Per coprire la parete con l'ottica 0,5:1 le ottiche dovrebbero stare tutte al centro esatto del cubo. "
+     "I proiettori sono quindi spostati di 0,40 m di lato, a girandola, e l'immagine è ricentrata con il "
+     "lens shift orizzontale (circa 7%). La copertura è completa, ma ogni fascio parte inclinato verso il "
+     "basso e passa vicino ai corpi degli altri proiettori: si vedono le loro ombre nella parte alta delle "
+     "pareti. Pianta della disposizione nei disegni tecnici."),
     ("0_80_dist_2_0", "0,8:1", "2,00 m", "2,50 × 1,56 m",
      "Ottica corta classica, con i proiettori fermi al centro: l'immagine è di soli 2,50 × 1,56 m, "
      "meno di un quinto della parete. Questa ottica non è adatta alla disposizione centrale."),
@@ -121,10 +127,84 @@ pagine.append(f'''
   </div>
 </section>''')
 
+# ---------------------------------------------------------------- disegni tecnici
+def disegno(nome):
+    return f'<img class="disegno" src="file://{os.path.join(QUI, "disegni", nome)}">'
+
+pagine.append(f'''
+<section>
+  <h2>3. Disegni tecnici &mdash; pianta, versione con porta <span class="sub">scala 1:50 circa su A4 · misure in metri</span></h2>
+  <div class="dis">
+    {disegno("01_pianta_con_porta.svg")}
+    <div class="nota">
+      <h3>Legenda</h3>
+      <p>Pareti in nero, spessore 0,10 m. Le linee colorate sul filo interno delle pareti sono le superfici
+      proiettate; i triangoli sono i coni di proiezione in pianta (ottica 0,33:1, immagine larga 6,00 m).</p>
+      <p>Il reticolo grigio è la divisione delle lastre a specchio del pavimento (1 × 1 m).</p>
+      <p>I proiettori sono a croce al centro: ogni ottica è a 2,00 m dalla propria parete e a 1,00 m dal
+      centro del cubo. In rosso la traccia della sezione A-A.</p>
+      <p>Porta 1,00 × 2,20 m al centro della parete d'ingresso, anta apribile verso l'esterno.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <h2>3. Disegni tecnici &mdash; pianta, versione senza porta <span class="sub">scala 1:50 circa su A4 · misure in metri</span></h2>
+  <div class="dis">
+    {disegno("02_pianta_senza_porta.svg")}
+    <div class="nota">
+      <h3>Versione senza porta</h3>
+      <p>Il lato d'ingresso è aperto per tutti i 6,00 m. Tre proiettori (P1, P2, P3), con la stessa
+      disposizione della versione con porta: il quarto proiettore non c'è.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <h2>3. Disegni tecnici &mdash; sezione A-A <span class="sub">scala 1:50 circa su A4 · misure in metri</span></h2>
+  <div class="dis">
+    {disegno("03_sezione_AA.svg")}
+    <div class="nota">
+      <h3>Sezione longitudinale</h3>
+      <p>Sezione al centro del cubo, dall'ingresso (a sinistra) al fondo (a destra).</p>
+      <p>Altezza interna 3,50 m; base del pavimento 0,10 m, pannello del tetto 0,08 m.
+      Specchi in azzurro su pavimento e soffitto.</p>
+      <p>Asse ottico a 3,20 m. L'immagine (3,75 m di altezza) è centrata sulla parete con il lens shift:
+      supera di 0,125 m il soffitto e il pavimento.</p>
+      <p>Il manichino è alto 1,75 m: i fasci passano sopra la testa per buona parte del percorso.</p>
+    </div>
+  </div>
+</section>
+<section>
+  <h2>3. Disegni tecnici &mdash; prospetti delle pareti <span class="sub">scala 1:100 circa · misure in metri</span></h2>
+  <div class="due">
+    <div>{disegno("04_prospetto_fondo.svg")}<p class="didas">Parete di fondo (uguale per le pareti laterali):
+      la griglia 16 × 10 è l'immagine del proiettore, in rosso l'abbondanza su soffitto e pavimento.</p></div>
+    <div>{disegno("05_prospetto_ingresso.svg")}<p class="didas">Parete d'ingresso (solo versione con porta):
+      il vano della porta 1,00 × 2,20 m resta all'interno dell'immagine e va mascherato nel contenuto.</p></div>
+  </div>
+</section>
+<section>
+  <h2>3. Disegni tecnici &mdash; proiettore e staffa</h2>
+  <div class="dis">
+    {disegno("06_dettaglio_proiettore.svg")}
+    <div class="nota">
+      <h3>Coordinate delle ottiche</h3>
+      <p>Origine al centro del pavimento, X verso destra, Y verso il fondo, Z verso l'alto.</p>
+      <table>
+        <tr><th></th><th>X</th><th>Y</th><th>Z</th><th>rivolto verso</th></tr>
+        <tr><td>P1</td><td>+1,00</td><td>0,00</td><td>3,20</td><td>destra</td></tr>
+        <tr><td>P2</td><td>0,00</td><td>+1,00</td><td>3,20</td><td>fondo</td></tr>
+        <tr><td>P3</td><td>&minus;1,00</td><td>0,00</td><td>3,20</td><td>sinistra</td></tr>
+        <tr><td>P4</td><td>0,00</td><td>&minus;1,00</td><td>3,20</td><td>ingresso</td></tr>
+      </table>
+      <p>Piastra della staffa al centro del corpo, 0,255 m dietro l'ottica (per P1: X = +0,745).</p>
+    </div>
+  </div>
+</section>''')
+
 # ---------------------------------------------------------------- vedute realistiche
 pagine.append(f'''
 <section>
-  <h2>3. Vedute realistiche &mdash; versione con porta</h2>
+  <h2>4. Vedute realistiche &mdash; versione con porta</h2>
   <div class="griglia2">
     {figura("render_con_porta_Camera_esterna_3-4.png", "Esterno: il cubo chiuso nel padiglione, la luce esce solo dalla porta.")}
     {figura("render_con_porta_Camera_ingresso.png", "Arrivo alla porta.")}
@@ -134,7 +214,7 @@ pagine.append(f'''
 </section>''')
 pagine.append(f'''
 <section>
-  <h2>4. Vedute realistiche &mdash; versione senza porta</h2>
+  <h2>5. Vedute realistiche &mdash; versione senza porta</h2>
   <div class="griglia2">
     {figura("render_senza_porta_Camera_esterna_3-4.png", "Esterno: il lato d'ingresso è aperto.")}
     {figura("render_senza_porta_Camera_ingresso.png", "Vista dall'ingresso aperto.")}
@@ -151,7 +231,7 @@ pagine.append(f'''
 # ---------------------------------------------------------------- confronto ottiche
 pagine.append('''
 <section>
-  <h2>5. Confronto delle ottiche</h2>
+  <h2>6. Confronto delle ottiche</h2>
   <p>Proiettori fermi nella stessa posizione (2,00 m dalla parete) con ottiche diverse; in più, l'ottica
   corta 0,8:1 alla distanza che le serve per coprire la parete (4,80 m).
   La larghezza dell'immagine è <b>distanza ÷ rapporto di tiro</b>; il formato è 16:10 (WUXGA), il più
@@ -162,6 +242,7 @@ pagine.append('''
     <tr><td>0,25:1</td><td>2,00 m</td><td>8,00 × 5,00 m</td><td>deborda di 1,00 m per lato e 0,75 m sopra e sotto</td></tr>
     <tr class="ok"><td>0,33:1</td><td>2,00 m</td><td>6,00 × 3,75 m</td><td>esatta in larghezza, 12,5 cm sopra e sotto &mdash; <b>consigliata</b></td></tr>
     <tr><td>0,5:1</td><td>2,00 m</td><td>4,00 × 2,50 m</td><td>non copre: mancano 1,00 m per lato e 0,50 m sopra e sotto</td></tr>
+    <tr><td>0,5:1 a girandola</td><td>3,00 m</td><td>6,00 × 3,75 m</td><td>copre, ma i proiettori al centro si fanno ombra a vicenda</td></tr>
     <tr><td>0,8:1</td><td>2,00 m</td><td>2,50 × 1,56 m</td><td>copre meno di un quinto della parete</td></tr>
     <tr><td>0,8:1</td><td>4,80 m</td><td>6,00 × 3,75 m</td><td>copre, ma i proiettori vanno dalla parte opposta: fasci incrociati e ombre</td></tr>
   </table>
@@ -175,6 +256,15 @@ pagine.append('''
 </section>''')
 
 for chiave, rt, dist, dim, testo in OTTICHE:
+    if "girandola" in chiave:
+        pagine.append(f'''
+<section>
+  <h2>Variante: ottica 0,5:1 a girandola &mdash; pianta <span class="sub">scala 1:50</span></h2>
+  <div class="dis">{disegno("07_pianta_girandola_0_5.svg")}
+    <div class="nota"><h3>Disposizione</h3><p>Ottiche a 3,00 m dalla parete, ciascuna spostata di 0,40 m di
+    lato rispetto al centro: i corpi non si toccano, ma sono uno accanto all'altro nel percorso dei fasci.</p></div>
+  </div>
+</section>''')
     pagine.append(f'''
 <section>
   <h2>Ottica {rt} &nbsp;<span class="sub">distanza {dist} · immagine {dim}</span></h2>
@@ -189,7 +279,7 @@ for chiave, rt, dist, dim, testo in OTTICHE:
 # ---------------------------------------------------------------- note
 pagine.append('''
 <section>
-  <h2>6. Note e indicazioni</h2>
+  <h2>7. Note e indicazioni</h2>
   <div class="due">
     <div>
       <h3>Scelta dell'ottica</h3>
@@ -249,6 +339,10 @@ tr.ok td { background: #efeaff; }
 .nota { background: #f4f2fa; border-radius: 2mm; padding: 4mm 5mm; }
 .c { font-weight: 600; padding: 0 1.5mm; border-radius: 1mm; color: #fff; }
 .ar { background: #e07a1e; } .ve { background: #3aa64a; } .az { background: #2a78d8; } .ma { background: #d23aa6; }
+.dis { display: grid; grid-template-columns: 1fr 62mm; gap: 6mm; align-items: start; }
+img.disegno { width: 100%; max-height: 165mm; object-fit: contain; display: block; }
+.due img.disegno { max-height: 125mm; }
+.didas { font-size: 9pt; color: #555; }
 .manca { background: #fdecec; color: #a33; padding: 8mm; border-radius: 2mm; }
 .piede { position: absolute; bottom: 9mm; left: 16mm; right: 16mm; font-size: 8.5pt; color: #888; }
 '''

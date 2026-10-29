@@ -23,6 +23,9 @@ CON_PORTA = "--senza-porta" not in ARGV
 #   --distanza 4.8    distanza di tiro fissa (m): l'immagine diventa larga distanza / rapporto di tiro
 #   (default 2,0 m: i tre proiettori sono raggruppati al centro, schiena contro schiena, come da schizzo)
 DISTANZA_FISSA = float(ARGV[ARGV.index("--distanza") + 1]) if "--distanza" in ARGV else 2.0
+#   --girandola 0.4  sposta ogni proiettore di lato (m), a girandola intorno al centro: serve quando
+#                     le ottiche dovrebbero stare tutte nello stesso punto (es. 0,5:1 a 3,0 m)
+GIRANDOLA = float(ARGV[ARGV.index("--girandola") + 1]) if "--girandola" in ARGV else 0.0
 FORMATO = 16 / 10            # WUXGA, il formato più comune nei proiettori da installazione
 
 # ---------------------------------------------------------------- misure
@@ -223,6 +226,10 @@ if CON_PORTA:
     # quarto proiettore: proietta la parete d'ingresso, rivolto verso la porta
     pareti.append(("Proiettore_parete_ingresso", Vector((0, Y0, 0)), Vector((0, -1, 0)), Vector((0, 0, 0)),
                    [Vector((X0, Y0, 0)), Vector((X1, Y0, 0)), Vector((X1, Y0, H)), Vector((X0, Y0, H))]))
+if GIRANDOLA:
+    # spostamento laterale = direzione ruotata di 90°: i corpi si dispongono a girandola senza toccarsi,
+    # il lens shift orizzontale ricentra l'immagine sulla parete
+    pareti = [(n, pt, d, Vector((d.y, -d.x, 0)) * GIRANDOLA, ang) for n, pt, d, _s, ang in pareti]
 LARGHEZZA_IMMAGINE = {"Proiettore_parete_sinistra": P, "Proiettore_parete_destra": P,
                       "Proiettore_parete_fondo": L, "Proiettore_parete_ingresso": L}
 
