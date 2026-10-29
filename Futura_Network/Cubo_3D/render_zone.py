@@ -18,7 +18,8 @@ exec(compile(open(os.path.join(cartella, "cubo_immersivo.py")).read(), "cubo_imm
 scena = bpy.context.scene
 COLORI = {"Proiettore_parete_sinistra": (1.0, 0.45, 0.08),
           "Proiettore_parete_fondo": (0.15, 1.0, 0.25),
-          "Proiettore_parete_destra": (0.1, 0.45, 1.0)}
+          "Proiettore_parete_destra": (0.1, 0.45, 1.0),
+          "Proiettore_parete_ingresso": (1.0, 0.15, 0.75)}
 
 def opaco(nome, grigio):
     m = bpy.data.materials.new(nome)
@@ -40,7 +41,9 @@ for ob in bpy.data.objects:
 
 # fasci accesi, colorati per proiettore
 for nome, col in COLORI.items():
-    luce = bpy.data.objects[nome + "_fascio"]
+    luce = bpy.data.objects.get(nome + "_fascio")
+    if luce is None:
+        continue
     luce.hide_render = False
     luce.data.node_tree.nodes["Emission"].inputs["Color"].default_value = (*col, 1)
 
@@ -79,7 +82,8 @@ def camera(nome, pos, guarda, lente_mm=None, orto=None):
     return cam
 
 cam_interna = camera("Camera_zone_interna", (X1 - 0.4, Y0 + 0.4, 1.7), (X0 + 1.2, Y1 - 1.0, 1.5), lente_mm=12)
-cam_pianta = camera("Camera_zone_pianta", (0, -0.0001, 25), (0, 0, 0), orto=12.5)
+cam_porta = camera("Camera_zone_verso_porta", (X0 + 0.4, Y1 - 0.4, 1.7), (X1 - 1.2, Y0 + 1.0, 1.5), lente_mm=12)
+cam_pianta = camera("Camera_zone_pianta", (0, 0.6999, 25), (0, 0.7, 0), orto=12.5)
 da_nascondere_in_pianta = [o for o in bpy.data.objects
                            if o.name.startswith(("Tetto_", "Specchio_soffitto", "Fondo_soffitto"))]
 
@@ -117,11 +121,15 @@ r.use_stamp_note = True
 _D = DISTANZA_FISSA if DISTANZA_FISSA else RAPPORTO_TIRO * 6
 _w = _D / RAPPORTO_TIRO
 r.stamp_note_text = (f"Ottica {RAPPORTO_TIRO:.2f}:1  -  distanza {_D:.2f} m  -  immagine {_w:.2f} x {_w / FORMATO:.2f} m (16:10) "
-                     f"su parete 6,00 x 3,50 m  -  arancio = sinistra, verde = fondo, azzurro = destra")
+                     f"su parete 6,00 x 3,50 m  -  arancio = sinistra, verde = fondo, azzurro = destra"
+                     + (", magenta = ingresso" if CON_PORTA else ""))
 r.stamp_font_size = 26
 
 etichetta = f"{RAPPORTO_TIRO:.2f}".replace(".", "_") + f"_dist_{_D:.1f}".replace(".", "_") + ("" if CON_PORTA else "_senza_porta")
-for cam, vista, nascondi in ((cam_interna, "interna", []), (cam_pianta, "pianta", da_nascondere_in_pianta)):
+viste = [(cam_interna, "interna", []), (cam_pianta, "pianta", da_nascondere_in_pianta)]
+if CON_PORTA:
+    viste.insert(1, (cam_porta, "verso_porta", []))
+for cam, vista, nascondi in viste:
     for o in nascondi:
         o.hide_render = True
     scena.camera = cam

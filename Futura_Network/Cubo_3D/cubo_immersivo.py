@@ -113,6 +113,7 @@ M_PERSONA = mat_base("Persona_riferimento", (0.85, 0.85, 0.85), rough=0.9)
 M_PARETE_SX = mat_contenuto("Contenuto_parete_sinistra", (0.02, 0.05, 0.25), (0.2, 0.8, 1.0), 0.6, 0.0)
 M_PARETE_FONDO = mat_contenuto("Contenuto_parete_fondo", (0.15, 0.02, 0.3), (1.0, 0.35, 0.9), 0.6, 2.0)
 M_PARETE_DX = mat_contenuto("Contenuto_parete_destra", (0.02, 0.05, 0.25), (0.2, 0.8, 1.0), 0.6, 4.0)
+M_PARETE_INGRESSO = mat_contenuto("Contenuto_parete_ingresso", (0.15, 0.02, 0.3), (1.0, 0.35, 0.9), 0.6, 6.0)
 
 # ---------------------------------------------------------------- utilità
 def box(nome, centro, dimensioni, materiale, coll):
@@ -176,6 +177,12 @@ if CON_PORTA:
     anta.rotation_euler = (0, 0, math.radians(-75))
     box("Porta_maniglia", (0, 0, 0), (0.12, 0.03, 0.02), M_TELAIO, C_STRUTTURA).parent = anta
     anta.children[0].location = (ANTA_L - 0.1, -0.04, 1.05)
+    # superficie proiettata sulla faccia interna della parete d'ingresso (vano porta escluso)
+    YI = Y0 + SP
+    LATO_I = (L - PORTA_L) / 2
+    piano("Proiezione_parete_ingresso_sx", (X0 + LATO_I / 2, YI, H / 2), LATO_I, H, M_PARETE_INGRESSO, C_STRUTTURA, rot=(-math.pi / 2, 0, 0))
+    piano("Proiezione_parete_ingresso_dx", (X1 - LATO_I / 2, YI, H / 2), LATO_I, H, M_PARETE_INGRESSO, C_STRUTTURA, rot=(-math.pi / 2, 0, 0))
+    piano("Proiezione_parete_ingresso_sopraporta", (0, YI, (PORTA_H + H) / 2), PORTA_L, H - PORTA_H, M_PARETE_INGRESSO, C_STRUTTURA, rot=(-math.pi / 2, 0, 0))
 
 # Base del pavimento e pannello di legno del tetto
 box("Base_pavimento", (0, 0, -SP_BASE / 2), (L + 2 * SP_PARETE, P + SP_PARETE, SP_BASE), M_STRUTTURA, C_STRUTTURA)
@@ -212,7 +219,12 @@ pareti = [
     ("Proiettore_parete_fondo", Vector((0, Y1, 0)), Vector((0, 1, 0)), Vector((0, 0, 0)),
      [Vector((X1, Y1, 0)), Vector((X0, Y1, 0)), Vector((X0, Y1, H)), Vector((X1, Y1, H))]),
 ]
-LARGHEZZA_IMMAGINE = {"Proiettore_parete_sinistra": P, "Proiettore_parete_destra": P, "Proiettore_parete_fondo": L}
+if CON_PORTA:
+    # quarto proiettore: proietta la parete d'ingresso, rivolto verso la porta
+    pareti.append(("Proiettore_parete_ingresso", Vector((0, Y0, 0)), Vector((0, -1, 0)), Vector((0, 0, 0)),
+                   [Vector((X0, Y0, 0)), Vector((X1, Y0, 0)), Vector((X1, Y0, H)), Vector((X0, Y0, H))]))
+LARGHEZZA_IMMAGINE = {"Proiettore_parete_sinistra": P, "Proiettore_parete_destra": P,
+                      "Proiettore_parete_fondo": L, "Proiettore_parete_ingresso": L}
 
 def luce_proiettore(nome, lente, direzione, centro_parete, larghezza_img, colore=(1, 1, 1)):
     """Luce spot con il tronco di proiezione reale (formato 16:10, centrato sulla parete con il
@@ -379,6 +391,7 @@ palette_calda = [(0.30, (0.01, 0.0, 0.02)), (0.42, (0.25, 0.0, 0.45)), (0.50, (1
 contenuto_realistico(M_PARETE_SX, palette_fredda, 0.9, 1.3)
 contenuto_realistico(M_PARETE_DX, palette_fredda, 0.9, 7.9)
 contenuto_realistico(M_PARETE_FONDO, palette_calda, 0.8, 4.2)
+contenuto_realistico(M_PARETE_INGRESSO, palette_calda, 0.8, 9.1)
 
 # specchio: vetro argentato con leggerissima tinta e micro-variazione di rugosità
 nt, out = nodi(M_SPECCHIO)
@@ -532,6 +545,7 @@ def camera(nome, pos, guarda, lente_mm):
 
 if CON_PORTA:
     cam_ingresso = camera("Camera_ingresso", (0.6, Y0 - 3.6, 1.55), (0, Y0, 1.3), 24)
+    camera("Camera_verso_porta", (0, Y1 - 1.0, 1.6), (0, Y0, 1.9), 14)
 else:
     cam_ingresso = camera("Camera_ingresso", (0, Y0 - 4.5, 1.7), (0, 0, 1.6), 24)
 camera("Camera_interna", (0, Y0 + 1.0, 1.6), (0, Y1, 1.9), 14)
@@ -577,7 +591,7 @@ try:
 except TypeError:
     scena.view_settings.view_transform = 'Filmic'
 
-print("Cubo immersivo creato: 6 x 6 m, h 3,5 m — 3 pareti proiettate, pavimento e soffitto a specchio, 3 proiettori.")
+print("Cubo immersivo creato: 6 x 6 m, h 3,5 m — 3 pareti proiettate, pavimento e soffitto a specchio, 3 proiettori (4 con la porta).")
 
 # ---------------------------------------------------------------- salvataggio (da riga di comando)
 if "--salva" in ARGV:

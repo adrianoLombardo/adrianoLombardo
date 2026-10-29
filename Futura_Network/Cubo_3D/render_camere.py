@@ -24,10 +24,10 @@ except Exception as e:
     print("GPU non attivata, uso CPU:", e)
 
 scena.cycles.samples = int(os.environ.get("CAMPIONI", "1024"))
-for nome in ("Camera_ingresso", "Camera_interna", "Camera_esterna_3-4"):
+for nome in ("Camera_ingresso", "Camera_interna", "Camera_verso_porta", "Camera_esterna_3-4"):
     cam = bpy.data.objects.get(nome)
     if cam is None:
-        print("Camera mancante:", nome)
+        print("Camera non presente in questa versione:", nome)
         continue
     scena.camera = cam
     scena.render.filepath = os.path.join(cartella, f"render_{versione}_{nome}.png" if versione else f"render_{nome}.png")
