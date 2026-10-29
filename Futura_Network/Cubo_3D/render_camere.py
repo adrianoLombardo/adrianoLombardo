@@ -20,7 +20,7 @@ try:
 except Exception as e:
     print("GPU non attivata, uso CPU:", e)
 
-scena.cycles.samples = 64
+scena.cycles.samples = 1024
 for nome in ("Camera_ingresso", "Camera_interna", "Camera_esterna_3-4"):
     cam = bpy.data.objects.get(nome)
     if cam is None:
