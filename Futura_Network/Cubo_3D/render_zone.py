@@ -79,7 +79,7 @@ def camera(nome, pos, guarda, lente_mm=None, orto=None):
     return cam
 
 cam_interna = camera("Camera_zone_interna", (X1 - 0.4, Y0 + 0.4, 1.7), (X0 + 1.2, Y1 - 1.0, 1.5), lente_mm=12)
-cam_pianta = camera("Camera_zone_pianta", (0, -0.0001, 25), (0, 0, 0), orto=9.0)
+cam_pianta = camera("Camera_zone_pianta", (0, -0.0001, 25), (0, 0, 0), orto=12.5)
 da_nascondere_in_pianta = [o for o in bpy.data.objects
                            if o.name.startswith(("Tetto_", "Specchio_soffitto", "Fondo_soffitto"))]
 
